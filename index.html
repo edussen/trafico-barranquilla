@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerta de arroyos | BAQ</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="https://imagenes.numart.com.co/faviconTemporal.ico">
+    <style>
+        :root {
+            --ui-bg: #ffffff;
+            --map-border: #e2e8f0;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --accent: #f59e0b; 
+            --ia-blue: #6366f1;
+            --user-green: #74c291;
+            --danger: #ef4444;
+            --sidebar-width: 60px;
+            --inspector-width: 320px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        
+        body { background: #f1f5f9; height: 100vh; display: grid; grid-template-columns: var(--sidebar-width) 1fr var(--inspector-width); grid-template-rows: 50px 1fr 40px; overflow: hidden; }
+
+        header { grid-column: 1 / -1; background: var(--ui-bg); border-bottom: 1px solid var(--map-border); display: flex; align-items: center; padding: 0 20px; justify-content: space-between; }
+
+        .mode-btn { padding: 6px 15px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; border: 1px solid #e2e8f0; cursor: pointer; background: #f8fafc; color: var(--text-muted); margin-right: 8px; }
+        .mode-btn.active { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+
+        .toolbar { grid-row: 2; background: var(--ui-bg); border-right: 1px solid var(--map-border); display: flex; flex-direction: column; align-items: center; padding-top: 20px; gap: 15px; }
+
+        .tool-icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; }
+
+        #map { grid-row: 2; background: #e5e3df; }
+
+        .inspector { grid-row: 2; background: var(--ui-bg); border-left: 1px solid var(--map-border); padding: 20px; overflow-y: auto; }
+
+        .section-title { font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; font-weight: 700; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; letter-spacing: 0.5px; }
+
+        .data-card { background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 12px; padding: 12px; margin-bottom: 20px; }
+
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.8rem; }
+        .data-label { color: var(--text-muted); }
+        .data-value { font-weight: 600; }
+
+        .origin-badge { padding: 4px 8px; border-radius: 6px; font-size: 0.65rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
+        .origin-ia { background: #e0e7ff; color: var(--ia-blue); }
+        .origin-user { background: #dcfce7; color: var(--user-green); }
+
+        .alert-ring { position: relative; width: 14px; height: 14px; background-color: var(--danger); border-radius: 50%; border: 2px solid white; }
+
+        .alert-ring::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; border-radius: 50%; background: var(--danger); animation: radar-ripple 2s infinite ease-out; }
+
+        @keyframes radar-ripple { 0% { width: 14px; height: 14px; opacity: 0.8; } 100% { width: 100px; height: 100px; opacity: 0; } }
+
+        .traffic-flow { stroke-dasharray: 10, 25; animation: traffic-move 2s linear infinite; }
+        .legend-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 0.75rem; }
+        .line-sample { width: 30px; height: 6px; border-radius: 3px; }
+        .sample-closed { background: repeating-linear-gradient(45deg, #ef4444, #ef4444 5px, #fff 5px, #fff 10px); border: 1px solid #b91c1c; }
+
+        @keyframes traffic-move { from { stroke-dashoffset: 70; } to { stroke-dashoffset: 0; } }
+
+        footer { grid-column: 1 / -1; background: #1e293b; color: #94a3b8; display: flex; align-items: center; padding: 0 20px; font-size: 0.7rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <button class="mode-btn">REPORTES</button>
+            <button class="mode-btn active">MONITOR EN VIVO</button>
+        </div>
+        <div style="font-size: 0.8rem; font-weight: 700; color: var(--danger);">
+            <i class="fa-solid fa-circle-exclamation"></i> EVENTO CRÍTICO
+        </div>
+    </header>
+
+    <div class="toolbar">
+        <div class="tool-icon"><i class="fa-solid fa-layer-group"></i></div>
+        <div class="tool-icon"><i class="fa-solid fa-bullseye"></i></div>
+        <div class="tool-icon"><i class="fa-solid fa-rss"></i></div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="inspector">
+        <div class="section-title">Origen del Reporte</div>
+        <div class="data-card">
+            <div class="data-row">
+                <span class="data-label">Método</span>
+                <span class="origin-badge origin-ia"><i class="fa-solid fa-robot"></i> IA PREDICTION</span>
+            </div>
+            <div class="data-row" style="margin-top: 8px;">
+                <span class="data-label">Validación</span>
+                <span class="origin-badge origin-user"><i class="fa-solid fa-user-check"></i> HUMANA</span>
+            </div>
+            <div class="data-row" style="margin-top: 8px;">
+                <span class="data-label">Actualización</span>
+                <span class="origin-badge origin-user"><i class="fa-solid fa-clock"></i> HACE UNOS MINUTOS</span>
+            </div>
+        </div>
+
+        <div class="section-title">Análisis de Riesgo</div>
+        <div class="data-card" style="background: #fff5f5; border-color: #feb2b2;">
+            <div class="data-row">
+                <span class="data-label">Probabilidad</span>
+                <span class="data-value" style="color: var(--danger);">67% Actual</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Nivel de Agua</span>
+                <span class="data-value">0.85m (Estimado)</span>
+            </div>
+        </div>
+
+        <div class="section-title">Detalles del evento</div>
+        <div class="data-card">
+            <div class="data-row"><span class="data-label">Calle</span><span class="data-value">Calle 85</span></div>
+            <div class="data-row"><span class="data-label">Rango</span><span class="data-value">Cra 43 - 51B</span></div>
+            <div class="data-row"><span class="data-label">Ciudad</span><span class="data-value">Barranquilla</span></div>
+        </div>
+
+        <div class="section-title">Estado de Vías</div>
+        <div class="data-card">
+            <div class="legend-item">
+                <div class="line-sample sample-closed"></div>
+                <span>VÍA CERRADA</span>
+            </div>
+            <div class="legend-item">
+                <div class="line-sample" style="background:#ff4242;"></div>
+                <span>TRÁFICO PESADO</span>
+            </div>
+            <div class="legend-item">
+                <div class="line-sample" style="background:#f1c40f;"></div>
+                <span>TRÁFICO MEDIO</span>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div style="display: flex; gap: 20px;">
+            <span>● SISTEMA ACTIVO</span>
+            <span>COORD: 11.002272, -74.821112</span>
+            <span>BARRANQUILLA, COLOMBIA</span>
+        </div>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const puntoCritico = [11.002272, -74.821112];
+        
+        var map = L.map('map', { zoomControl: false }).setView(puntoCritico, 16);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CartoDB'
+        }).addTo(map);
+
+        var ruta1 = [
+            [11.006525, -74.819079],
+            [11.002341, -74.821074],
+            [10.999094, -74.822296]
+        ];
+
+        var ruta2 = [
+            [11.011191, -74.839665],
+            [11.006148, -74.830203],
+            [11.002585, -74.822407],
+            [11.001918, -74.819953],
+            [11.000983, -74.817365],
+            [10.995485, -74.807824]
+        ];
+
+        function createTraffic(path, color) {
+            L.polyline(path, { color: color, weight: 6, opacity: 0.2 }).addTo(map);
+            L.polyline(path, { color: color, weight: 6, opacity: 0.8, className: 'traffic-flow' }).addTo(map);
+        }
+
+        createTraffic(ruta1, '#fab1a0'); 
+        createTraffic(ruta2, '#f1c40f'); 
+
+        var alertIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div class="alert-ring"></div>',
+            iconSize: [14, 14],
+            iconAnchor: [7, 7]
+        });
+
+        L.marker(puntoCritico, { icon: alertIcon }).addTo(map)
+            .bindPopup("<b>ZONA CRÍTICA</b><br>Calle 85 - Posible arroyo.")
+            .openPopup();
+
+        L.circle(puntoCritico, { color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.1, radius: 250, weight: 1 }).addTo(map);
+
+    </script>
+</body>
+</html>
