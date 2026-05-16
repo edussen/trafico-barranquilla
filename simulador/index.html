@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Interactivo 3D | ArroyosBAQ</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="icon" type="image/png" href="https://imagenes.numart.com.co/AquaVIA-LO.png">
+
+    <style>
+        :root {
+            --bg-page: #f1f5f9;
+            --border-color: #e5e7eb;
+            --text-main: #111827;
+            --text-muted: #64748b;
+            --bg-panel: rgba(255, 255, 255, 0.85);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
+        
+        body { 
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-page); 
+        }
+
+        /* --- HEADER (Extraído de tu UI) --- */
+        .main-header {
+            background-color: white; border-bottom: 1px solid var(--border-color);
+            z-index: 2000; flex-shrink: 0; position: relative;
+        }
+        .header-content { padding: 0 1rem; max-width: 80rem; margin: 0 auto; }
+        .header-inner { display: flex; align-items: center; justify-content: space-between; height: 4rem; }
+        .logo img { height: 45px; width: auto; }
+
+        /* --- CONTENEDOR DEL SIMULADOR 3D --- */
+        .view-container {
+            flex: 1; position: relative; overflow: hidden; display: block;
+        }
+        canvas { display: block; width: 100%; height: 100%; outline: none;}
+
+        /* --- CONSOLAS FLOTANTES (Tema Claro y Minimalista) --- */
+        .ui-container {
+            position: absolute; top: 20px; left: 20px; right: 20px;
+            display: flex; justify-content: space-between; pointer-events: none; z-index: 100;
+        }
+
+        .console {
+            background: var(--bg-panel); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            color: var(--text-main); padding: 20px; border-radius: 16px; 
+            border: 1px solid rgba(255,255,255,0.6); width: 280px; pointer-events: auto; 
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1);
+        }
+
+        .console h2 { 
+            margin-top: 0; font-size: 0.75rem; text-align: left; text-transform: uppercase; 
+            margin-bottom: 15px; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 700;
+        }
+        
+        button {
+            width: 100%; padding: 12px 16px; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600; text-align: left;
+            background-color: #f8fafc; color: var(--text-muted); border: 1px solid #f1f5f9;
+            border-radius: 10px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 10px;
+        }
+        button:hover { background-color: #f1f5f9; color: var(--text-main); }
+        button::before { content: ''; display: block; width: 8px; height: 8px; border-radius: 50%; background-color: #cbd5e1; }
+        
+        /* Estados Activos Minimalistas */
+        .active-vial { background-color: #ecfdf5 !important; color: #065f46 !important; border-color: #d1fae5 !important; }
+        .active-vial::before { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+
+        .active-warn { background-color: #fffbeb !important; color: #b45309 !important; border-color: #fef3c7 !important; }
+        .active-warn::before { background-color: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+
+        .active-cerrado { background-color: #fef2f2 !important; color: #b91c1c !important; border-color: #fee2e2 !important; }
+        .active-cerrado::before { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; animation: pulse-red 1.5s infinite; }
+
+        .active-clima { background-color: #eff6ff !important; color: #1d4ed8 !important; border-color: #dbeafe !important; }
+        .active-clima::before { background-color: #3b82f6; box-shadow: 0 0 8px #3b82f6;}
+
+        .active-tormenta { background-color: #faf5ff !important; color: #6b21a8 !important; border-color: #f3e8ff !important; }
+        .active-tormenta::before { background-color: #a855f7; box-shadow: 0 0 8px #a855f7; animation: pulse-purple 2s infinite;}
+
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        @keyframes pulse-purple { 0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.4); } 70% { box-shadow: 0 0 0 8px rgba(168, 85, 247, 0); } 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); } }
+    </style>
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="header-content">
+            <div class="header-inner">
+                <div class="logo">
+                    <img src="https://pub-03d0689f896f4c1b96c0eadaaff42219.r2.dev/AquaVIA-LO.png" alt="ArroyosBAQ Logo">
+                </div>
+                <div style="width: 100px;"></div> 
+            </div>
+        </div>
+    </header>
+
+    <div id="view-web" class="view-container">
+        
+        <div class="ui-container">
+            <div class="console">
+                <h2>Panel LED Principal</h2>
+                <button id="btn-v-cuidado" class="active-vial" onclick="setVial('cuidado')">Conduce con Cuidado</button>
+                <button id="btn-v-arroyo" onclick="setVial('arroyo')">Posible Arroyo</button>
+                <button id="btn-v-peligro" onclick="setVial('peligro')">Peligro en Vía</button>
+                <button id="btn-v-cerrado" onclick="setVial('cerrado')">Vía Cerrada (Desvío)</button>
+            </div>
+
+            <div class="console">
+                <h2>Control Ambiental</h2>
+                <button id="btn-c-despejado" class="active-clima" onclick="setWeather('despejado')">Cielo Despejado</button>
+                <button id="btn-c-lluvia" onclick="setWeather('lluvia')">Lluvia Moderada</button>
+                <button id="btn-c-tormenta" onclick="setWeather('tormenta')">Alerta Tormenta</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        let scene, camera, renderer, controls, clock;
+        let ledSignMaterial;
+        let currentWeather = 'despejado';
+        
+        let sunLight, ambientLight, lightningLight, rainSystem, floodPlane;
+        let lightningTimer = 0;
+        const thunderSound = new Audio('https://actions.google.com/sounds/v1/weather/thunder_crack.ogg');
+        
+        let trafficLightsNS = { state: 'GREEN', timer: 12, meshes: [] };
+        let trafficLightsEW = { state: 'RED', timer: 12, meshes: [] };
+        
+        let weatherTargets = { skyColor: new THREE.Color(0x87CEEB), fogDensity: 0.002, sunIntensity: 1.1, ambientIntensity: 0.65, rainOpacity: 0.0, rainSpeed: 0 };
+
+        const config = {
+            roadLength: 800,
+            waterLevel: -2.5, 
+            anchoCra46: 28, anchoCll85: 22, anchoMiniCalle: 12,
+            separadorCentral: 4
+        };
+
+        function getDipValue(x, z) {
+            let dist = Math.sqrt(x*x + z*z);
+            let radius = 80; 
+            if (dist < radius) {
+                let t = dist / radius;
+                return -1.9 * (1 - t * t); 
+            }
+            return 0;
+        }
+
+        function applyDipToRotatedPlane(geometry, offsetX = 0, offsetZ = 0) {
+            const pos = geometry.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                let worldX = pos.getX(i) + offsetX;
+                let worldZ = -pos.getY(i) + offsetZ; 
+                pos.setZ(i, pos.getZ(i) + getDipValue(worldX, worldZ));
+            }
+            geometry.computeVertexNormals();
+        }
+
+        function applyDipToBox(geometry, offsetX = 0, offsetZ = 0) {
+            const pos = geometry.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                let worldX = pos.getX(i) + offsetX;
+                let worldZ = pos.getZ(i) + offsetZ; 
+                pos.setY(i, pos.getY(i) + getDipValue(worldX, worldZ));
+            }
+            geometry.computeVertexNormals();
+        }
+
+        function init() {
+            const container = document.getElementById('view-web');
+            let width = container.clientWidth;
+            let height = container.clientHeight;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.FogExp2(0x87CEEB, 0.002);
+
+            camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
+            camera.position.set(60, 40, 180);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 5, 40);
+            controls.maxPolarAngle = Math.PI / 2 - 0.02; 
+            controls.maxDistance = 350;
+
+            clock = new THREE.Clock(); 
+
+            setupLighting();
+            createAccurateMap(); 
+            createGantryAndSign(130, 1);   
+            createGantryAndSign(-130, -1); 
+            setupWeatherSystems();
+
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        }
+
+        function setupLighting() {
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+            scene.add(ambientLight);
+
+            sunLight = new THREE.DirectionalLight(0xfff7e0, 1.1);
+            sunLight.position.set(150, 250, 100);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048; sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5; sunLight.shadow.camera.far = 600;
+            const d = 250;
+            sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
+            scene.add(sunLight);
+
+            lightningLight = new THREE.PointLight(0xffffff, 0, 1000);
+            lightningLight.position.set(0, 200, 0);
+            scene.add(lightningLight);
+        }
+
+        function createAccurateMap() {
+            const asfaltoMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
+            const andenMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+            const grassMat = new THREE.MeshStandardMaterial({ color: 0x3b5e2b, roughness: 1 });
+            
+            const buildMats = [
+                new THREE.MeshStandardMaterial({ color: 0x8b5a2b }), 
+                new THREE.MeshStandardMaterial({ color: 0xaa5533 }), 
+                new THREE.MeshStandardMaterial({ color: 0xcccccc }), 
+                new THREE.MeshStandardMaterial({ color: 0x112233, roughness: 0.1, metalness: 0.8 }), 
+                new THREE.MeshStandardMaterial({ color: 0x2a2a2a })  
+            ];
+
+            const cra46Geo = new THREE.PlaneGeometry(config.anchoCra46, config.roadLength, 10, 100);
+            applyDipToRotatedPlane(cra46Geo);
+            const cra46 = new THREE.Mesh(cra46Geo, asfaltoMat);
+            cra46.rotation.x = -Math.PI / 2; cra46.position.y = 0.05; cra46.receiveShadow = true; scene.add(cra46);
+
+            const cll85Geo = new THREE.PlaneGeometry(config.roadLength, config.anchoCll85, 100, 10);
+            applyDipToRotatedPlane(cll85Geo);
+            const cll85 = new THREE.Mesh(cll85Geo, asfaltoMat);
+            cll85.rotation.x = -Math.PI / 2; cll85.position.y = 0.06; cll85.receiveShadow = true; scene.add(cll85);
+
+            const andenWidth = 300;
+            const offsetCra = config.anchoCra46/2; const offsetCll = config.anchoCll85/2;
+            const createAnden = (xDir, zDir) => {
+                const geo = new THREE.PlaneGeometry(andenWidth, andenWidth, 30, 30);
+                const posX = xDir * (offsetCra + andenWidth/2);
+                const posZ = zDir * (offsetCll + andenWidth/2);
+                applyDipToRotatedPlane(geo, posX, posZ);
+                const mesh = new THREE.Mesh(geo, andenMat);
+                mesh.rotation.x = -Math.PI / 2; mesh.position.set(posX, 0.15, posZ); mesh.receiveShadow = true; scene.add(mesh);
+            };
+            createAnden(1,1); createAnden(-1,1); createAnden(-1,-1); createAnden(1,-1);
+
+            const addBulevarSegment = (zStart, zEnd) => {
+                const len = Math.abs(zEnd - zStart);
+                const posZ = (zStart + zEnd) / 2;
+                const geo = new THREE.BoxGeometry(config.separadorCentral, 0.4, len, 1, 1, Math.max(1, Math.floor(len/5)));
+                applyDipToBox(geo, 0, posZ);
+                const segment = new THREE.Mesh(geo, grassMat);
+                segment.position.set(0, 0.25, posZ); segment.receiveShadow = true; scene.add(segment);
+            };
+            addBulevarSegment(100, 350); addBulevarSegment(15, 80); addBulevarSegment(-80, -15); addBulevarSegment(-350, -100); 
+
+            for(let z = -300; z <= 300; z += 18) {
+                if (Math.abs(z) > 15 && Math.abs(z - 90) > 10 && Math.abs(z + 90) > 10) createTree(0, z);
+                if (Math.abs(z) > 20) { createTree(18, z); createTree(-18, z); }
+            }
+
+            const generateCityBlock = (startX, endX, startZ, endZ, isCorner) => {
+                for(let i=0; i<15; i++) {
+                    const w = 15 + Math.random()*25; const d = 15 + Math.random()*25;
+                    const h = isCorner && i===0 ? 45 : 20 + Math.random() * (60 + Math.abs(startX)*0.5); 
+                    const mat = buildMats[Math.floor(Math.random() * buildMats.length)];
+                    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+                    
+                    const posX = startX + Math.random() * (endX - startX);
+                    const posZ = startZ + Math.random() * (endZ - startZ);
+                    const dipY = getDipValue(posX, posZ);
+                    b.position.set(posX, (h/2) + dipY, posZ);
+                    b.castShadow = true; b.receiveShadow = true; scene.add(b);
+                }
+            };
+
+            const mall = new THREE.Mesh(new THREE.BoxGeometry(35, 40, 35), buildMats[3]);
+            mall.position.set(-35, 20 + getDipValue(-35, -35), -35); mall.castShadow = true; scene.add(mall);
+
+            generateCityBlock( 25,  300,  25,  300, true); 
+            generateCityBlock(-300, -25,  25,  300, true); 
+            generateCityBlock(-300, -55, -300, -25, false);
+            generateCityBlock( 25,  300, -300, -25, true); 
+
+            createTrafficLightArm(-14, 13, 'NS'); createTrafficLightArm(14, -13, 'NS');
+            createTrafficLightArm(-16, -11, 'EW'); createTrafficLightArm(16, 11, 'EW');
+            
+            createPedestrianCrossing(0, offsetCll + 4, 'Z'); createPedestrianCrossing(0, -offsetCll - 4, 'Z');
+            createPedestrianCrossing(offsetCra + 4, 0, 'X'); createPedestrianCrossing(-offsetCra - 4, 0, 'X');
+        }
+
+        function createTree(x, z) {
+            const dipY = getDipValue(x, z);
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 3), new THREE.MeshStandardMaterial({color: 0x4a3625}));
+            trunk.position.set(x, 1.5 + dipY, z); trunk.castShadow = true; scene.add(trunk);
+            const leaves = new THREE.Mesh(new THREE.SphereGeometry(2.5, 6, 6), new THREE.MeshStandardMaterial({color: 0x1e461a, roughness: 1}));
+            leaves.position.set(x, 3.8 + dipY, z); leaves.castShadow = true; scene.add(leaves);
+        }
+
+        function createPedestrianCrossing(xOffset, zOffset, axis) {
+            const mat = new THREE.MeshBasicMaterial({color: 0xeeeeee});
+            const lineCount = axis === 'Z' ? 8 : 6;
+            for(let i=0; i<lineCount; i++) {
+                const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 6), mat);
+                let px, pz;
+                if(axis === 'Z') { px = xOffset - 10 + i*2.8; pz = zOffset; stripe.rotation.x = -Math.PI/2; } 
+                else { px = xOffset; pz = zOffset - 7 + i*2.8; stripe.rotation.x = -Math.PI/2; stripe.rotation.z = Math.PI/2; }
+                stripe.position.set(px, 0.1 + getDipValue(px, pz), pz);
+                scene.add(stripe);
+            }
+        }
+
+        function createTrafficLightArm(x, z, dir) {
+            const dipY = getDipValue(x, z); 
+            const metal = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.3 });
+            const poste = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 14), metal);
+            poste.position.set(x, 7 + dipY, z); poste.castShadow = true; scene.add(poste);
+
+            const armLen = 12;
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, armLen), metal);
+            arm.position.set(dir === 'NS' ? x + (x<0 ? armLen/2 : -armLen/2) : x, 13 + dipY, dir === 'EW' ? z + (z<0 ? armLen/2 : -armLen/2) : z);
+            arm.rotation.z = dir === 'NS' ? Math.PI/2 : 0; arm.rotation.x = dir === 'EW' ? Math.PI/2 : 0;
+            scene.add(arm);
+
+            const addLightBox = (px, py, pz) => {
+                const box = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3.5, 1.2), new THREE.MeshStandardMaterial({color: 0x111111}));
+                box.position.set(px, py + dipY, pz); scene.add(box);
+                
+                const r = new THREE.Mesh(new THREE.CircleGeometry(0.4, 16), new THREE.MeshBasicMaterial({color: 0x550000}));
+                const y = new THREE.Mesh(new THREE.CircleGeometry(0.4, 16), new THREE.MeshBasicMaterial({color: 0x555500}));
+                const g = new THREE.Mesh(new THREE.CircleGeometry(0.4, 16), new THREE.MeshBasicMaterial({color: 0x005500}));
+                
+                const offset = 0.61; 
+                if(dir === 'NS') {
+                    r.position.set(px, py+1+dipY, pz+(z>0?-offset:offset)); y.position.set(px, py+dipY, pz+(z>0?-offset:offset)); g.position.set(px, py-1+dipY, pz+(z>0?-offset:offset));
+                    r.rotation.y = y.rotation.y = g.rotation.y = z>0 ? Math.PI : 0;
+                    trafficLightsNS.meshes.push({red: r, yel: y, grn: g});
+                } else {
+                    r.position.set(px+(x>0?-offset:offset), py+1+dipY, pz); y.position.set(px+(x>0?-offset:offset), py+dipY, pz); g.position.set(px+(x>0?-offset:offset), py-1+dipY, pz);
+                    r.rotation.y = y.rotation.y = g.rotation.y = x>0 ? -Math.PI/2 : Math.PI/2;
+                    trafficLightsEW.meshes.push({red: r, yel: y, grn: g});
+                }
+                scene.add(r); scene.add(y); scene.add(g);
+            };
+
+            addLightBox(x, 9, z);
+            if(dir === 'NS') addLightBox(x + (x<0 ? 8 : -8), 11.5, z); else addLightBox(x, 11.5, z + (z<0 ? 8 : -8));
+        }
+
+        function createGantryAndSign(zPos, direction) {
+            const metalMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.7 });
+            const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 18), metalMat); p1.castShadow=true;
+            const p2 = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 18), metalMat); p2.castShadow=true;
+            const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 33), metalMat); beam.castShadow=true;
+            
+            p1.position.set(-16, 9, zPos); p2.position.set(16, 9, zPos);
+            beam.rotation.z = Math.PI/2; beam.position.set(0, 16, zPos);
+            scene.add(p1); scene.add(p2); scene.add(beam);
+
+            if(!ledSignMaterial) {
+                const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 256;
+                const tex = new THREE.CanvasTexture(canvas);
+                ledSignMaterial = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex });
+                ledSignMaterial.userData.ctx = canvas.getContext('2d');
+            }
+
+            const panel = new THREE.Mesh(new THREE.BoxGeometry(24, 6, 0.5), ledSignMaterial);
+            const zOffset = direction === 1 ? 0.6 : -0.6;
+            panel.position.set(0, 16, zPos + zOffset);
+            panel.rotation.y = direction === 1 ? Math.PI : 0; 
+            scene.add(panel);
+
+            setVial('cuidado'); 
+        }
+
+        function setVial(type) {
+            document.querySelectorAll('.console:first-child button').forEach(b => b.className='');
+            let btnClass = type==='cerrado' ? 'active-cerrado' : (type==='peligro'||type==='arroyo' ? 'active-warn' : 'active-vial');
+            document.getElementById('btn-v-' + type).classList.add(btnClass);
+
+            const ctx = ledSignMaterial.userData.ctx;
+            ctx.fillStyle = '#080808'; ctx.fillRect(0, 0, 1024, 256); 
+            
+            const drawTriangle = (color) => {
+                ctx.shadowColor=color; ctx.strokeStyle=color; ctx.lineWidth=12;
+                ctx.beginPath(); ctx.moveTo(150, 40); ctx.lineTo(250, 200); ctx.lineTo(50, 200); ctx.closePath(); ctx.stroke();
+            };
+            const drawSpeed = (val, color) => {
+                ctx.shadowColor='#ff2222'; ctx.strokeStyle='#ff2222'; ctx.lineWidth=14;
+                ctx.beginPath(); ctx.arc(880, 128, 90, 0, Math.PI*2); ctx.stroke();
+                ctx.shadowColor=color; ctx.fillStyle=color; ctx.font='bold 90px monospace'; ctx.fillText(val, 880, 160);
+            };
+            const drawText = (t1, t2, color) => {
+                ctx.shadowColor=color; ctx.fillStyle=color; ctx.font='bold 70px monospace';
+                ctx.fillText(t1, 510, 90); ctx.fillText(t2, 510, 180);
+            };
+
+            ctx.textAlign = 'center'; ctx.shadowBlur = 15;
+
+            if (type === 'cuidado') {
+                drawTriangle('#00ff00'); ctx.fillStyle='#00ff00'; ctx.font='bold 100px sans-serif'; ctx.fillText("!", 150, 175);
+                drawText("CONDUZCA CON", "CUIDADO", "#00ff00"); drawSpeed("40", "#cc88ff");
+                ledSignMaterial.emissiveIntensity = 1.0;
+            } else if (type === 'arroyo') {
+                drawTriangle('#ffaa00'); ctx.shadowColor='#00ccff'; ctx.strokeStyle='#00ccff'; ctx.lineWidth=8;
+                ctx.beginPath(); ctx.moveTo(90, 130); ctx.quadraticCurveTo(120, 100, 150, 130); ctx.quadraticCurveTo(180, 160, 210, 130); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(90, 170); ctx.quadraticCurveTo(120, 140, 150, 170); ctx.quadraticCurveTo(180, 200, 210, 170); ctx.stroke();
+                drawText("POSIBLE", "ARROYO", "#ffaa00"); drawSpeed("20", "#cc88ff");
+                ledSignMaterial.emissiveIntensity = 1.4;
+            } else if (type === 'peligro') {
+                drawTriangle('#ff2222'); ctx.fillStyle='#ff2222'; ctx.font='bold 120px sans-serif'; ctx.fillText("!", 150, 185);
+                drawText("PELIGRO", "REDUZCA VEL.", "#ffaa00"); drawSpeed("10", "#ff2222");
+                ledSignMaterial.emissiveIntensity = 1.5;
+            } else if (type === 'cerrado') {
+                ctx.shadowColor='#ff0000'; ctx.fillStyle='#ff0000'; ctx.font='bold 150px sans-serif'; ctx.fillText("X", 150, 180);
+                drawText("VIA CERRADA", "DESVIO AQUI ->", "#ff0000"); drawSpeed("0", "#ff2222");
+                ledSignMaterial.emissiveIntensity = 1.8;
+            }
+            ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(10,10,10,0.85)';
+            for (let i=0; i<1024; i+=5) { ctx.fillRect(i, 0, 2, 256); ctx.fillRect(0, i, 1024, 2); }
+            ledSignMaterial.map.needsUpdate = true;
+        }
+
+        function setupWeatherSystems() {
+            rainSystem = new THREE.Points(
+                new THREE.BufferGeometry(),
+                new THREE.PointsMaterial({ color: 0xaaaaaa, size: 0.3, transparent: true, opacity: 0.0 }) 
+            );
+            const rainPos = new Float32Array(25000 * 3);
+            for(let i=0; i<75000; i+=3) {
+                rainPos[i] = (Math.random()-0.5)*500; rainPos[i+1] = Math.random()*200; rainPos[i+2] = (Math.random()-0.5)*500;
+            }
+            rainSystem.geometry.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+            scene.add(rainSystem);
+
+            floodPlane = new THREE.Mesh(
+                new THREE.PlaneGeometry(160, 160), 
+                new THREE.MeshStandardMaterial({ color: 0x1a2e2f, transparent: true, opacity: 0.85, roughness: 0.05, metalness: 0.5 })
+            );
+            floodPlane.rotation.x = -Math.PI/2; floodPlane.position.y = config.waterLevel;
+            scene.add(floodPlane);
+            
+            setWeather('despejado');
+        }
+
+        function setWeather(type) {
+            currentWeather = type;
+            document.querySelectorAll('.console:last-child button').forEach(b => b.className='');
+            let btnClass = type==='tormenta' ? 'active-tormenta' : 'active-clima';
+            document.getElementById('btn-c-' + type).classList.add(btnClass);
+
+            if (type === 'despejado') {
+                weatherTargets.skyColor.setHex(0x87CEEB); weatherTargets.fogDensity = 0.002;
+                weatherTargets.sunIntensity = 1.1; weatherTargets.ambientIntensity = 0.65;
+                weatherTargets.rainOpacity = 0.0; weatherTargets.rainSpeed = 0;
+            } else if (type === 'lluvia') {
+                weatherTargets.skyColor.setHex(0x445566); weatherTargets.fogDensity = 0.008;
+                weatherTargets.sunIntensity = 0.1; weatherTargets.ambientIntensity = 0.3;
+                weatherTargets.rainOpacity = 0.5; weatherTargets.rainSpeed = 45;
+            } else if (type === 'tormenta') {
+                weatherTargets.skyColor.setHex(0x1a1a22); weatherTargets.fogDensity = 0.015;
+                weatherTargets.sunIntensity = 0.0; weatherTargets.ambientIntensity = 0.2;
+                weatherTargets.rainOpacity = 0.8; weatherTargets.rainSpeed = 80;
+                lightningTimer = 0; 
+            }
+        }
+
+        function updateTrafficLights(delta) {
+            trafficLightsNS.timer -= delta;
+            if (trafficLightsNS.timer <= 0) {
+                if (trafficLightsNS.state === 'GREEN') { trafficLightsNS.state = 'YELLOW'; trafficLightsNS.timer = 3; }
+                else if (trafficLightsNS.state === 'YELLOW') { trafficLightsNS.state = 'RED'; trafficLightsEW.state = 'GREEN'; trafficLightsNS.timer = 12; }
+                else if (trafficLightsNS.state === 'RED' && trafficLightsEW.state === 'RED') { trafficLightsNS.state = 'GREEN'; trafficLightsNS.timer = 12; }
+            }
+            trafficLightsEW.timer -= delta;
+            if (trafficLightsEW.timer <= 0) {
+                if (trafficLightsEW.state === 'GREEN') { trafficLightsEW.state = 'YELLOW'; trafficLightsEW.timer = 3; }
+                else if (trafficLightsEW.state === 'YELLOW') { trafficLightsEW.state = 'RED'; trafficLightsEW.timer = 12; }
+                else if (trafficLightsEW.state === 'RED' && trafficLightsNS.state === 'RED') { trafficLightsNS.state = 'GREEN'; trafficLightsNS.timer = 12; }
+            }
+            const updateMeshes = (meshes, state) => {
+                meshes.forEach(m => {
+                    m.red.material.color.setHex(state==='RED'?0xff0000:0x330000);
+                    m.yel.material.color.setHex(state==='YELLOW'?0xffff00:0x333300);
+                    m.grn.material.color.setHex(state==='GREEN'?0x00ff00:0x003300);
+                });
+            };
+            updateMeshes(trafficLightsNS.meshes, trafficLightsNS.state);
+            updateMeshes(trafficLightsEW.meshes, trafficLightsEW.state);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            updateTrafficLights(delta);
+
+            const t = 1.2 * delta; 
+            scene.background.lerp(weatherTargets.skyColor, t);
+            scene.fog.color.lerp(weatherTargets.skyColor, t);
+            scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, weatherTargets.fogDensity, t);
+            sunLight.intensity = THREE.MathUtils.lerp(sunLight.intensity, weatherTargets.sunIntensity, t);
+            ambientLight.intensity = THREE.MathUtils.lerp(ambientLight.intensity, weatherTargets.ambientIntensity, t);
+            rainSystem.material.opacity = THREE.MathUtils.lerp(rainSystem.material.opacity, weatherTargets.rainOpacity, t);
+            
+            rainSystem.visible = (rainSystem.material.opacity > 0.01);
+
+            if (rainSystem.visible) {
+                const pos = rainSystem.geometry.attributes.position.array;
+                for(let i=1; i<pos.length; i+=3) { 
+                    pos[i] -= weatherTargets.rainSpeed * delta; 
+                    if(pos[i] < 0) pos[i] = 200; 
+                }
+                rainSystem.geometry.attributes.position.needsUpdate = true;
+            }
+
+            if (currentWeather === 'lluvia') {
+                if (config.waterLevel < -1.7) config.waterLevel += delta * 0.1;
+                else if (config.waterLevel > -1.7) config.waterLevel -= delta * 0.1;
+            } else if (currentWeather === 'tormenta') {
+                lightningTimer += delta;
+                if (lightningTimer >= 15) { 
+                    lightningLight.intensity = 8; 
+                    setTimeout(() => lightningLight.intensity = 0, 100);
+                    setTimeout(() => lightningLight.intensity = 4, 200); 
+                    setTimeout(() => lightningLight.intensity = 0, 300);
+                    setTimeout(() => { thunderSound.currentTime = 0; thunderSound.volume = 0.15; thunderSound.play().catch(e => {}); }, 2000);
+                    lightningTimer = 0;
+                }
+                if (config.waterLevel < -0.4) config.waterLevel += delta * 0.08;
+            } else if (config.waterLevel > -2.5) {
+                config.waterLevel -= delta * 0.15;
+            }
+            floodPlane.position.y = config.waterLevel;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('view-web');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        init();
+    </script>
+</body>
+</html>
